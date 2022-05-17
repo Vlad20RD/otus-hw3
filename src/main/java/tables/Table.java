@@ -10,6 +10,8 @@ import java.util.*;
 
 public class Table extends TableAbs {
 
+  IPrint responseInConsoleObj = new ResponseConsole();
+
   public Table(String dbType) {
     super(dbType);
   }
@@ -24,41 +26,60 @@ public class Table extends TableAbs {
 
     //Формирование строки запроса и выполнение запроса
     String requestText = String.format("SELECT %s FROM %s %s", Arrays.toString(columns).replaceAll("^\\[|\\]$", ""), tableName, predicats);
-    ResultSet requestResult = new MySqlDbExecutor().executeQuery(requestText);
+    ResultSet requestResult = null;
+    try {
+      requestResult = new MySqlDbExecutor().getStatement().executeQuery(requestText);
+    } catch (SQLException throwables) {
+      throwables.printStackTrace();
+      throw new RuntimeException();
+    }
 
     List<Map<String, String>> requestResultList = new ArrayList<>();
 
-    //Резуьтат запроса с count(*) или count(*) as
-    if (columns.length == 1 && columns[0].contains("COUNT(*)")){
-      String columnNameCount = "COUNT(*)";
-
-      if(columns[0].contains("AS")){
-        columnNameCount = columns[0].substring(columns[0].indexOf("AS") + "AS".length()).trim();
-      }
-
-      try {
-        while (requestResult.next()){
-          responseCount(requestText, columnNameCount, requestResult);
-        }
-        System.out.print("\n\n");
-      } catch (SQLException ex){
-        ex.printStackTrace();
-      }
-    }
     //Резуьтат запроса
-    else{
-      try {
-        while (requestResult.next()) {
-          for (String column : columns) {
-            Map<String, String> map = new HashMap<>();
-            map.put(column, requestResult.getString(column));
-            requestResultList.add(map);
-          }
+    try {
+      while (requestResult.next()) {
+        for (String column : columns) {
+          Map<String, String> map = new HashMap<>();
+          map.put(column, requestResult.getString(column));
+          requestResultList.add(map);
         }
-        response(requestText, requestResultList);
-      } catch (SQLException ex){
-        ex.printStackTrace();
       }
+      responseInConsoleObj.response(requestText, requestResultList);
+    } catch (SQLException ex){
+      ex.printStackTrace();
+      throw new RuntimeException();
+    }
+
+    new MySqlDbExecutor().close();
+  }
+
+  //Выполнение запроса count
+  public void requestCount(String column, String tableName) {
+
+    //Формирование строки запроса и выполнение запроса
+    String requestText = String.format("SELECT %s FROM %s;", column, tableName);
+    ResultSet requestResult = null;
+    try {
+      requestResult = new MySqlDbExecutor().getStatement().executeQuery(requestText);
+    } catch (SQLException throwables) {
+      throwables.printStackTrace();
+      throw new RuntimeException();
+    }
+
+    String columnNameCount = "COUNT(*)";
+
+    if(column.contains("AS")){
+      columnNameCount = column.substring(column.indexOf("AS") + "AS".length()).trim();
+    }
+
+    try {
+      while (requestResult.next()){
+        responseInConsoleObj.responseCount(requestText, columnNameCount, requestResult);
+      }
+      System.out.print("\n\n");
+    } catch (SQLException ex){
+      ex.printStackTrace();
     }
 
     new MySqlDbExecutor().close();
@@ -103,7 +124,12 @@ public class Table extends TableAbs {
       //После генерации данных выполянется формирование строки запроса и выполнение запроса
       String requestText = String.format("INSERT %s VALUE (%s);", tableName, Arrays.toString((valuesList.toArray(new String[0]))).replaceAll("^\\[|\\]$", ""));
       System.out.println(String.format("Запрос:\n%s\n\nРезультат запроса:", requestText));
-      new MySqlDbExecutor().executeUpdate(requestText);
+      try {
+        new MySqlDbExecutor().getStatement().executeUpdate(requestText);
+      } catch (SQLException throwables) {
+        throwables.printStackTrace();
+        throw new RuntimeException();
+      }
       System.out.println("Данные добавлены в таблицу\n\n\n");
     }
     System.out.println(String.format("%s запрос/а/ов по добавлению данных в таблицу %s прош/ли/ел успешно\n\n\n", numberOfLines, tableName));
@@ -123,16 +149,26 @@ public class Table extends TableAbs {
 
     //Формирование строки запроса и выполнение запроса
     String requestText = String.format("UPDATE %s SET %s %s", tableName, Arrays.toString(columnsAndValuesArray).replaceAll("^\\[|\\]$", ""), predicats);
-    new MySqlDbExecutor().executeUpdate(requestText);
-    responseUpdateTable(requestText, tableName);
+    try {
+      new MySqlDbExecutor().getStatement().executeUpdate(requestText);
+    } catch (SQLException throwables) {
+      throwables.printStackTrace();
+      throw new RuntimeException();
+    }
+    responseInConsoleObj.responseUpdateTable(requestText, tableName);
     new MySqlDbExecutor().close();
   }
 
   //Создание таблицы
   public void createTable(String tableName, String columns) {
     String requestText = String.format("CREATE TABLE %s (%s);", tableName, columns);
-    new MySqlDbExecutor().executeUpdate(requestText);
-    responseCreateTable(requestText, tableName);
+    try {
+      new MySqlDbExecutor().getStatement().executeUpdate(requestText);
+    } catch (SQLException throwables) {
+      throwables.printStackTrace();
+      throw new RuntimeException();
+    }
+    responseInConsoleObj.responseCreateTable(requestText, tableName);
     new MySqlDbExecutor().close();
   }
 
@@ -140,8 +176,13 @@ public class Table extends TableAbs {
   public void dropTable(String tableName) {
     if(tablesList().contains(tableName)){
       String requestText = String.format("DROP TABLE %s;", tableName);
-      new MySqlDbExecutor().executeUpdate(requestText);
-      responseDropTable(requestText, tableName);
+      try {
+        new MySqlDbExecutor().getStatement().executeUpdate(requestText);
+      } catch (SQLException throwables) {
+        throwables.printStackTrace();
+        throw new RuntimeException();
+      }
+      responseInConsoleObj.responseDropTable(requestText, tableName);
       new MySqlDbExecutor().close();
     }
   }
@@ -151,7 +192,13 @@ public class Table extends TableAbs {
   //Получение колонки с MUL
   public String getBindingColumnName(String tableName) {
     String requestText = String.format("DESCRIBE %s", tableName);
-    ResultSet resultRequest = new MySqlDbExecutor().executeQuery(requestText);
+    ResultSet resultRequest = null;
+    try {
+      resultRequest = new MySqlDbExecutor().getStatement().executeQuery(requestText);
+    } catch (SQLException throwables) {
+      throwables.printStackTrace();
+      throw new RuntimeException();
+    }
     List<String> columnKeyList = new ArrayList<>();
     List<String> columnNameList = new ArrayList<>();
 
@@ -185,7 +232,13 @@ public class Table extends TableAbs {
   //В результате возвращается список значений из связующей таблицы и связующей колонки
   public List<String> getConnectingColumn(String tableName) {
     String requestText = String.format("SELECT * FROM information_schema.key_column_usage WHERE referenced_table_schema='otus' AND table_name='%s';", tableName);
-    ResultSet resultRequest = new MySqlDbExecutor().executeQuery(requestText);
+    ResultSet resultRequest = null;
+    try {
+      resultRequest = new MySqlDbExecutor().getStatement().executeQuery(requestText);
+    } catch (SQLException throwables) {
+      throwables.printStackTrace();
+      throw new RuntimeException();
+    }
     String tableNameKey = "";
     String columnNameKey = "";
 
@@ -206,7 +259,13 @@ public class Table extends TableAbs {
   //Получить все значения колонки
   public List<String> getColumnValues(String columnName, String tableName) {
     String requestText = String.format("SELECT %s FROM %s;", columnName, tableName);
-    ResultSet resultRequest = new MySqlDbExecutor().executeQuery(requestText);
+    ResultSet resultRequest = null;
+    try {
+      resultRequest = new MySqlDbExecutor().getStatement().executeQuery(requestText);
+    } catch (SQLException throwables) {
+      throwables.printStackTrace();
+      throw new RuntimeException();
+    }
     List<String> columnValuesList = new ArrayList<>();
 
     try {
@@ -225,7 +284,13 @@ public class Table extends TableAbs {
   //Получение всех колонок таблицы и их тип
   public Map<String, String> getColumnAndType(String tableName) {
     String requestText = String.format("DESCRIBE %s", tableName);
-    ResultSet resultRequest = new MySqlDbExecutor().executeQuery(requestText);
+    ResultSet resultRequest = null;
+    try {
+      resultRequest = new MySqlDbExecutor().getStatement().executeQuery(requestText);
+    } catch (SQLException throwables) {
+      throwables.printStackTrace();
+      throw new RuntimeException();
+    }
     Map<String, String> map = new LinkedHashMap<>();
 
     try {
@@ -243,7 +308,13 @@ public class Table extends TableAbs {
 
   //Получение всех колонок таблицы
   private List<String> getAllColumns(String tableName) {
-    ResultSet requestResult = new MySqlDbExecutor().executeQuery(String.format("SELECT * FROM %s", tableName));
+    ResultSet requestResult = null;
+    try {
+      requestResult = new MySqlDbExecutor().getStatement().executeQuery(String.format("SELECT * FROM %s", tableName));
+    } catch (SQLException throwables) {
+      throwables.printStackTrace();
+      throw new RuntimeException();
+    }
     List<String> requestResultList = new ArrayList<>();
 
     try {
@@ -265,7 +336,13 @@ public class Table extends TableAbs {
   //Список таблиц
   public List<String> tablesList() {
     String requestText = "SHOW TABLES;";
-    ResultSet requestResult = new MySqlDbExecutor().executeQuery(requestText);
+    ResultSet requestResult = null;
+    try {
+      requestResult = new MySqlDbExecutor().getStatement().executeQuery(requestText);
+    } catch (SQLException throwables) {
+      throwables.printStackTrace();
+      throw new RuntimeException();
+    }
     List<String> requestResultList = new ArrayList<>();
 
     try {
@@ -279,49 +356,6 @@ public class Table extends TableAbs {
     }
 
     return requestResultList;
-  }
-
-
-
-  //Вывод результата запроса
-  private void response(String requestText, List<Map<String, String>> requestResultList) {
-    System.out.println("Запрос:\n" + requestText + "\n\nРезультат запроса:");
-
-    for(Map<String, String> r : requestResultList){
-      for (Map.Entry<String, String> m : r.entrySet()){
-        System.out.println(m.getKey() + ":  " + m.getValue());
-      }
-    }
-
-    System.out.print("\n\n\n");
-  }
-
-  //Вывод результата запроса count(*)
-  private void responseCount(String requestText, String columnNameCount, ResultSet requestResult) {
-    System.out.println("Запрос:\n" + requestText + "\n\nРезультат запроса:");
-    try {
-      System.out.println(columnNameCount + ":  " + requestResult.getString(columnNameCount));
-    } catch (SQLException ex){
-      ex.printStackTrace();
-    }
-  }
-
-  //Вывод результата запроса по добавлению таблицы
-  private void responseCreateTable(String requestText, String tableName) {
-    System.out.println(String.format("Запрос:\n%s\n\nРезультат запроса:", requestText));
-    System.out.println(String.format("Добавлена таблица \"%s\";\n\n\n", tableName));
-  }
-
-  //Вывод результата запроса по удалению таблицы
-  private void responseDropTable(String requestText, String tableName) {
-    System.out.println(String.format("Запрос:\n%s\n\nРезультат запроса:", requestText));
-    System.out.println(String.format("Удалена таблица \"%s\";\n\n\n", tableName));
-  }
-
-  //Вывод результата запроса по обновлению таблицы
-  private void responseUpdateTable(String requestText, String tableName) {
-    System.out.println(String.format("Запрос:\n%s\n\nРезультат запроса:", requestText));
-    System.out.println(String.format("Таблица \"%s\" обновлена;\n\n\n", tableName));
   }
 
 }

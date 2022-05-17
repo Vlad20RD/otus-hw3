@@ -1,5 +1,7 @@
 import tables.Table;
 
+
+
 public class Main {
   public static void main(String... args) {
     Table tableOtus = new Table("mysql");
@@ -14,7 +16,7 @@ public class Main {
     tableOtus.insertDataIntoTable("student_group", 3);
     tableOtus.insertDataIntoTable("student", 15);
     tableOtus.request(new String[]{"student.fio", "sex", "curator.fio", "student_group.name"}, "student", "JOIN curator ON student.id_group = curator.id JOIN student_group ON student.id_group = student_group.id;");
-    tableOtus.request(new String[]{"COUNT(*) AS count"}, "student", "");
+    tableOtus.requestCount("COUNT(*) AS count", "student");
     tableOtus.request(new String[]{"fio"}, "student", "WHERE sex = 'female';");
     tableOtus.updateDataIntoTable(new String[]{"fio"}, new String[]{"Ivan Ivanov"}, "curator", "WHERE id=3;");
     tableOtus.request(new String[]{"name", "fio"}, "student_group", "JOIN curator ON student_group.id = curator.id;");

@@ -1,37 +1,17 @@
 package db;
 
 import utils.ReadPropertiesFromPropsFile;
-
 import java.sql.*;
 import java.util.Properties;
+
+
 
 public class MySqlDbExecutor {
 
   private static Connection connect = null;
   private static Statement statement = null;
 
-  public ResultSet executeQuery(String sqlRequest) {
-    ReadPropertiesFromPropsFile readerProps = new ReadPropertiesFromPropsFile();
-    Properties properties = readerProps.read();
-
-    ResultSet resultSet = null;
-
-    try {
-      connect = DriverManager.getConnection(
-          properties.getProperty("url") + "/" + properties.getProperty("db_name"),
-          properties.getProperty("username"),
-          properties.getProperty("password")
-      );
-      statement = connect.createStatement();
-      resultSet = statement.executeQuery(sqlRequest);
-    } catch (SQLException ex) {
-      ex.printStackTrace();
-    }
-
-    return resultSet;
-  }
-
-  public void executeUpdate(String sqlRequest) {
+  public Statement getStatement() {
     ReadPropertiesFromPropsFile readerProps = new ReadPropertiesFromPropsFile();
     Properties properties = readerProps.read();
 
@@ -42,10 +22,12 @@ public class MySqlDbExecutor {
               properties.getProperty("password")
       );
       statement = connect.createStatement();
-      statement.executeUpdate(sqlRequest);
-    } catch (SQLException ex) {
-      ex.printStackTrace();
+    } catch (Exception ex) {
+      System.err.println(ex.getClass() + ": Не удалось подключиться к БД");
+      throw new RuntimeException();
     }
+
+    return statement;
   }
 
   public void close() {
